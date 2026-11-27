@@ -1,0 +1,70 @@
+name: payment CD Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      ECRURL:
+        description: "ECR Registry URL (with / at end)"
+        required: true
+        default: "747240980649.dkr.ecr.us-east-1.amazonaws.com/"
+      REPO:
+        description: "Repository Name"
+        required: true
+        default: "fintech-paymentservice"
+      IMAGE:
+        description: "Image Tag"
+        required: true
+        default: "fb-1-00000000"
+      TEST:
+        description: "Environment"
+        required: true
+        type: choice
+        options:
+          - functional
+          - integration
+          - regression
+          - uat
+          - release
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+
+    steps:
+      # -----------------------------
+      # Checkout Deployment Repo
+      # -----------------------------
+      - name: Checkout Deployment Repo
+        uses: actions/checkout@v4
+        with:
+          repository: muntaha747/FinTech-Payment-CD-Microservice-Project
+          ref: main
+          token: ${{ secrets.GH_PAT }}
+
+      # -----------------------------
+      # Update values.yaml
+      # -----------------------------
+      - name: Update Helm values
+        run: |
+          cd envs/${{ inputs.TEST }}
+
+          echo "Updating image repository..."
+          sed -i "s|repository:.*|repository: ${{ inputs.ECRURL }}${{ inputs.REPO }}|g" values.yaml
+
+          echo "Updating image tag..."
+          sed -i "s|tag:.*|tag: ${{ inputs.IMAGE }}|g" values.yaml
+
+          echo "Updated values.yaml:"
+          cat values.yaml
+
+      # -----------------------------
+      # Commit & Push Changes
+      # -----------------------------
+      - name: Commit and Push
+        run: |
+          git config user.name "muntaha747"
+          git config user.email "muntaha747@gmail.com"
+          git add .
+          git commit -m "New deployment for Build ${{ inputs.IMAGE }}" || echo "No changes to commit"
+          git push origin main

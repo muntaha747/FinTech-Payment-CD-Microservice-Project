@@ -1,0 +1,54 @@
+paymentSvc:
+  ports:
+  - port: 8081
+    protocol: TCP
+    targetPort: 8081
+  type: ClusterIP
+kubernetesClusterDomain: cluster.local
+mysql:
+  mysql:
+    image:
+      repository: mysql
+      tag: "8.1"
+  nodeSelector: {}
+  replicas: 1
+  storage: 5Gi
+  tolerations: []
+  topologySpreadConstraints: []
+mysqlSvc:
+  ports:
+  - port: 3306
+    protocol: TCP
+    targetPort: 3306
+  type: ClusterIP
+wezvapaymentapp:
+  initMydb:
+    image:
+      repository: busybox
+      tag: "1.28"
+  nodeSelector: {}
+  replicas: 2
+  tolerations: []
+  topologySpreadConstraints: []
+  wezvapaymentapp:
+    image:
+      repository: 747240980649.dkr.ecr.us-east-1.amazonaws.com/fintech-paymentservice
+      tag: fb1
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 400m
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+serviceAccount:
+  create: true
+  name: payment-sa
+# Vault (Vault Secrets Operator) - MySQL creds live here, not in git
+vault:
+  address: http://vault.default.svc:8200
+  authMount: kubernetes
+  role: payment-role
+  kvMount: internal
+  mysqlPath: payment/mysql   # keys: username, password, rootpassword, database

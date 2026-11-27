@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mychart.fullname" . }}-wezvapaymentapp
+  labels:
+  {{- include "mychart.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.wezvapaymentapp.replicas }}
+  selector:
+    matchLabels:
+      app: wezvapaymentapp
+    {{- include "mychart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: wezvapaymentapp
+      {{- include "mychart.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: wezvapaymentapp
+        image: {{ .Values.wezvapaymentapp.wezvapaymentapp.image.repository }}:{{ .Values.wezvapaymentapp.wezvapaymentapp.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.wezvapaymentapp.wezvapaymentapp.imagePullPolicy }}
+        # Env vars read by the Go app (cmd/app/main.go)
+        env:
+        - name: DB_HOST
+          value: {{ include "mychart.fullname" . }}-mysql-svc:3306
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              key: database
+              name: {{ include "mychart.fullname" . }}-mysql-creds
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: {{ include "mychart.fullname" . }}-mysql-creds
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: {{ include "mychart.fullname" . }}-mysql-creds
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        ports:
+        - containerPort: 8081
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+        resources: {{- toYaml .Values.wezvapaymentapp.wezvapaymentapp.resources | nindent 10 }}
+      imagePullSecrets:
+      - name: awsecr-cred
+      initContainers:
+      - name: init-mydb
+        image: {{ .Values.wezvapaymentapp.initMydb.image.repository }}:{{ .Values.wezvapaymentapp.initMydb.image.tag }}
+        command:
+        - sh
+        - -c
+        - until nslookup {{ include "mychart.fullname" . }}-mysql-svc.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local;
+          do echo waiting for mydb; sleep 2; done
+        resources: {}
+      nodeSelector: {{- toYaml .Values.wezvapaymentapp.nodeSelector | nindent 8 }}
+      serviceAccountName: {{ include "mychart.serviceAccountName" . }}
+      tolerations: {{- toYaml .Values.wezvapaymentapp.tolerations | nindent 8 }}
+      topologySpreadConstraints: {{- toYaml .Values.wezvapaymentapp.topologySpreadConstraints | nindent 8 }}

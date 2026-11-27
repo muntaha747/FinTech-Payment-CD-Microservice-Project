@@ -1,0 +1,5 @@
+wezvapaymentapp:
+  wezvapaymentapp:
+    image:
+      repository: 747240980649.dkr.ecr.us-east-1.amazonaws.com/fintech-paymentservice
+      tag: rel47

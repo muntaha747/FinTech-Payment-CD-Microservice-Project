@@ -1,0 +1,28 @@
+# Payment app service (ClusterIP)
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mychart.fullname" . }}-payment-svc
+  labels:
+  {{- include "mychart.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.paymentSvc.type }}
+  selector:
+    app: wezvapaymentapp
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+  {{- toYaml .Values.paymentSvc.ports | nindent 2 }}
+---
+# MySQL service (ClusterIP) - name used by the app's DB_HOST and init container
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mychart.fullname" . }}-mysql-svc
+  labels:
+  {{- include "mychart.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.mysqlSvc.type }}
+  selector:
+    app: {{ include "mychart.fullname" . }}-mysql
+  ports:
+  {{- toYaml .Values.mysqlSvc.ports | nindent 2 }}

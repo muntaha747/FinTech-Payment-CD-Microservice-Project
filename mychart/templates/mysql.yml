@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "mychart.fullname" . }}-mysql
+  labels:
+  {{- include "mychart.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "mychart.fullname" . }}-mysql-svc
+  replicas: {{ .Values.mysql.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "mychart.fullname" . }}-mysql
+  template:
+    metadata:
+      labels:
+        app: {{ include "mychart.fullname" . }}-mysql
+    spec:
+      containers:
+      - name: mysql
+        image: {{ .Values.mysql.mysql.image.repository }}:{{ .Values.mysql.mysql.image.tag }}
+        ports:
+        - containerPort: 3306
+        # all values come from the Vault-synced secret
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "mychart.fullname" . }}-mysql-creds
+              key: rootpassword
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "mychart.fullname" . }}-mysql-creds
+              key: database
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "mychart.fullname" . }}-mysql-creds
+              key: username
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "mychart.fullname" . }}-mysql-creds
+              key: password
+        readinessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+      nodeSelector: {{- toYaml .Values.mysql.nodeSelector | nindent 8 }}
+      tolerations: {{- toYaml .Values.mysql.tolerations | nindent 8 }}
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.mysql.storage }}
